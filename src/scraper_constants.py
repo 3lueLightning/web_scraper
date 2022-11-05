@@ -1,26 +1,49 @@
-BROWSER_DRIVER_PATH = '/Users/diogo/Dev/web_scraper_project/web_scraper/chromedriver_mac64_10605249' #_mod
-#BROWSER_DRIVER_PATH = '/usr/local/bin/chromedriver'
+from abc import ABC
+from dataclasses import dataclass
 
-POPULAR_USER_AGENTS = [
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:53.0) Gecko/20100101 Firefox/53.0"
-  "Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.0; Trident/5.0; Trident/5.0)"
-  "Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.2; Trident/6.0; MDDCJS)"
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.79 Safari/537.36 Edge/14.14393"
-  "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1)"
-]
+import constants
+from utils import default_field
 
-# For local testing
-POPULAR_USER_AGENTS = ["Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36"]
+# your user agent should be the same as the real Chrome, can find your installation's Chrome with this command
+# echo navigator.userAgent | /opt/google/chrome/chrome --headless --repl
+# or if you install jq:
+# echo navigator.userAgent | /opt/google/chrome/chrome --headless --repl 2> /dev/null | sed 's/^>>> //' | jq -r .result.value
+# and replace it in USER_AGENT
 
-# For Docker
-POPULAR_USER_AGENTS = ['Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36']
 
-# WORTEN specific parameters
-HOME_PAGE = "https://www.worten.pt"
-PRODUCT_PAGE_URL = 'https://www.worten.pt/diretorio-de-categorias'
-N_ITEMS_WORTEN = 48
-LVL2_CATEGORIES = ['Eletrodomésticos', 'TV, Vídeo e Som', 'Informática e Acessórios']
-LVL3_REF = 'submenu-third-level'
-LVL3_EXCLUDED_CATEGORIES = ['Ver Todos', 'Ajuda-me a escolher']
-MAX_PAGES_PER_SECTION = 4 # 100
+
+@dataclass(frozen=True)
+class WortenSearchConfig:
+    HOME_PAGE: str = "https://www.worten.pt"
+    PRODUCT_PAGE_URL: str = 'https://www.worten.pt/diretorio-de-categorias'
+    N_ITEMS_WORTEN: int = 48
+    LVL2_CATEGORIES: list[str] = default_field(['Eletrodomésticos', 'TV, Vídeo e Som', 'Informática e Acessórios'])
+    LVL3_REF: str = 'submenu-third-level'
+    LVL3_EXCLUDED_CATEGORIES: list[str] = default_field(['Ver Todos', 'Ajuda-me a escolher'])
+    MAX_PAGES_PER_SECTION: int = 2  # 100
+
+
+@dataclass(frozen=True)
+class ScraperConfig(ABC):
+    DRIVER_PATH: str
+    USER_AGENT: str
+
+
+class WortenSpConfig(WortenSearchConfig, ScraperConfig):
+    pass
+
+
+class LocalhostWSpConfig(WortenSpConfig):
+    DRIVER_PATH: str = constants.MAIN_DIR / 'chromedriver_mac64_10605249' #_mod
+    USER_AGENT: str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36"
+
+
+class DockerWSpConfig(WortenSpConfig):
+    DRIVER_PATH: str = '/usr/local/bin/chromedriver'
+    USER_AGENT: str = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.5304.68 Safari/537.36"
+
+
+WORTEN_SP_CONFIG_PER_SYSTEM = {
+    'localhost': LocalhostWSpConfig(),
+    'docker': DockerWSpConfig()
+}

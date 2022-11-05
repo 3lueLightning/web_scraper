@@ -16,9 +16,15 @@ RUN unzip /tmp/chromedriver.zip chromedriver -d /usr/local/bin/
 ENV DISPLAY=:99
 
 # Install requirements first so this step is cached by Docker
-COPY requirements.txt /home/web_scraper/requirements.txt
+#COPY requirements.txt /home/web_scraper/requirements.txt
+#COPY web_scraper_accessKeys.csv /home/web_scaper/web_scraper_accessKeys.csv
+COPY requirements.txt web_scraper_accessKeys.csv /home/web_scraper/
 WORKDIR /home/web_scraper/
 RUN pip install -r requirements.txt
+
+# tmp rm
+RUN mkdir /home/web_scraper/src && mkdir /home/web_scraper/screenshots
+# end tmp
 
 # copy code
 COPY src /home/web_scraper/src

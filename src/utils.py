@@ -1,8 +1,10 @@
 import csv
 import json
+import copy
 import logging
 
 from pathlib import Path
+from dataclasses import field
 from typing import Union, Any
 
 import boto3
@@ -75,7 +77,7 @@ def get_aws_credentials(file_name: str) -> dict[str, str]:
 
 
 def write_to_s3(data: Any) -> dict[str, Any]:
-    aws_credentials = get_aws_credentials('../web_scraper_accessKeys.csv')
+    aws_credentials = get_aws_credentials(constants.MAIN_DIR / 'web_scraper_accessKeys.csv')
 
     #Creating Session With Boto3.
     session = boto3.Session(
@@ -87,3 +89,7 @@ def write_to_s3(data: Any) -> dict[str, Any]:
     s3_object = s3.Object('shop-scrape', 'worten_products')
     response = s3_object.put(Body=json.dumps(data))
     return response
+
+
+def default_field(x: Any):
+    return field(default_factory=lambda: copy.copy(x))

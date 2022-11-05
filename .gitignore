@@ -2,7 +2,7 @@
 *egg*
 *.idea
 *.pdf
-chromedriver
+chromedriver*
 .DS_Store
 *.html
 *.ipynb
