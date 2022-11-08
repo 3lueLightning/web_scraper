@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 from dataclasses import field
 from typing import Union, Any
+from datetime import datetime
 
 import boto3
 
@@ -76,7 +77,7 @@ def get_aws_credentials(file_name: str) -> dict[str, str]:
     return credentials
 
 
-def write_to_s3(data: Any) -> dict[str, Any]:
+def write_to_s3(data: Any) -> tuple[str, dict[str, Any]]:
     aws_credentials = get_aws_credentials(constants.MAIN_DIR / 'web_scraper_accessKeys.csv')
 
     #Creating Session With Boto3.
@@ -86,9 +87,26 @@ def write_to_s3(data: Any) -> dict[str, Any]:
     )
     #Creating S3 Resource From the Session.
     s3 = session.resource('s3')
-    s3_object = s3.Object('shop-scrape', 'worten_products')
+    datetime_now = datetime.now().strftime("%Y%m%d_%H%M%S")
+    obj_name = f'worten_products{datetime_now}'
+    s3_object = s3.Object('shop-scrape', obj_name)
     response = s3_object.put(Body=json.dumps(data))
-    return response
+    return obj_name, response
+
+
+def read_from_s3(obj_name: str) -> dict[str, Any]:
+    aws_credentials = get_aws_credentials(constants.MAIN_DIR / 'web_scraper_accessKeys.csv')
+
+    #Creating Session With Boto3.
+    session = boto3.Session(
+        aws_access_key_id=aws_credentials['Access key ID'],
+        aws_secret_access_key=aws_credentials['Secret access key']
+    )
+    #Creating S3 Resource From the Session.
+    s3 = session.resource('s3')
+    s3_object = s3.Object('shop-scrape', obj_name)
+    response = s3_object.get()['Body'].read().decode('utf-8')
+    return json.loads(response)
 
 
 def default_field(x: Any):

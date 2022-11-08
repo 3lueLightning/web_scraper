@@ -1,5 +1,5 @@
 # Defining the actions taking place before the commit
-# GitGuarding checks if there are any passwords, access keys, etc. before pushing the commit
+# GitGuardian checks if there are any passwords, access keys, etc. before pushing the commit
 repos:
   - repo: https://github.com/gitguardian/ggshield
     rev: v1.13.6

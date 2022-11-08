@@ -1,9 +1,9 @@
 import logging
 from pathlib import Path
 
-HEADLESS_MODE = True  # False
+HEADLESS_MODE = True# False
 # select either of: 'localhost', 'docker', 'aws'
-MODE = 'docker'  # 'localhost'
+MODE = 'localhost'
 
 POSSIBLE_MAIN_DIR = {
     'localhost': Path('/Users/diogo/Dev/web_scraper_project/web_scraper'),

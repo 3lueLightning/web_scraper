@@ -3,3 +3,4 @@ selenium==4.5.0
 beautifulsoup4==4.11.1
 pre_commit==2.20.0
 ggshield==1.13.6
+mypy==0.982
