@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 
-HEADLESS_MODE = True# False
+HEADLESS_MODE = False
 # select either of: 'localhost', 'docker', 'aws'
 MODE = 'localhost'
 
@@ -12,4 +12,4 @@ POSSIBLE_MAIN_DIR = {
 MAIN_DIR = POSSIBLE_MAIN_DIR[MODE]
 
 LOG_LVL = logging.INFO
-LOG_FN = MAIN_DIR / 'scraper.log'
+LOG_FN = MAIN_DIR / 'logs' / 'scraper.log'

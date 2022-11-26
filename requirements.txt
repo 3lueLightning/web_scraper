@@ -1,4 +1,0 @@
-boto3==1.24.94
-selenium==4.5.0
-beautifulsoup4==4.11.1
-

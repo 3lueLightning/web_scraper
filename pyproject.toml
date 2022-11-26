@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "web-scraper"
+version = "0.0.1"
+requires-python = ">=3.10"
+description = "Web scraper to extract products sold in Worten.pt"
+authors = [
+    {name = "Diogo Norinho"}
+]
+dependencies = [
+    "boto3==1.24",
+    "selenium==4.5",
+    "beautifulsoup4==4.11"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pylint>=2.15",
+    "mypy>=0.982",
+    "pytest>=7.2"
+]
+
+[tool.setuptools]
+packages = ["web_scraper"]
+
+[project.scripts]
+run_scraper = "web_scraper.main:run_scraper"

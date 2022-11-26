@@ -1,8 +1,8 @@
 from abc import ABC
 from dataclasses import dataclass
 
-import constants
-from utils import default_field
+from web_scraper import config
+from web_scraper.utils import default_field
 
 # your user agent should be the same as the real Chrome, can find your installation's Chrome with this command
 # echo navigator.userAgent | /opt/google/chrome/chrome --headless --repl
@@ -20,7 +20,7 @@ class WortenSearchConfig:
     LVL2_CATEGORIES: list[str] = default_field(['Eletrodomésticos', 'TV, Vídeo e Som', 'Informática e Acessórios'])
     LVL3_REF: str = 'submenu-third-level'
     LVL3_EXCLUDED_CATEGORIES: list[str] = default_field(['Ver Todos', 'Ajuda-me a escolher'])
-    MAX_PAGES_PER_SECTION: int = 3  # 100
+    MAX_PAGES_PER_SECTION: int = 20  # 100
 
 
 @dataclass(frozen=True)
@@ -34,7 +34,7 @@ class WortenSpConfig(WortenSearchConfig, ScraperConfig):
 
 
 class LocalhostWSpConfig(WortenSpConfig):
-    DRIVER_PATH: str = constants.MAIN_DIR / 'chromedriver_mac64_10605249' #_mod
+    DRIVER_PATH: str = config.MAIN_DIR / 'data' / 'chromedriver_mac64_10605249' #_mod
     USER_AGENT: str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36"
 
 

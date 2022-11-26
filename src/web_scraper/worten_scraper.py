@@ -1,6 +1,7 @@
 """
 Defines the basic the specific scraper make to get the Worten products
 """
+import time
 import pickle
 from random import uniform
 from typing import Union, Type, Optional
@@ -14,10 +15,10 @@ from selenium.common.exceptions import (
     ElementNotInteractableException
 )
 
-import utils
-import scraper_constants as spc
-from utils import Numeric, NumericIter
-from site_scraper import Scraper, ScraperBlockedError
+from web_scraper import utils
+import web_scraper.scraper_config as spc
+from web_scraper.utils import Numeric, NumericIter
+from web_scraper.site_scraper import Scraper, ScraperBlockedError
 
 
 logger = utils.log_ws(__name__)
@@ -27,7 +28,7 @@ class WortenScraper(Scraper):
     def __init__(self,
                  config: Type[spc.WortenSpConfig],
                  load_wait_seconds: Union[int, float] = 30,
-                 sleep_pattern_seconds: Union[Numeric, NumericIter] = (5, 15),
+                 sleep_pattern_seconds: Union[Numeric, NumericIter] = (2, 4),
                  ) -> None:
         super().__init__(config, load_wait_seconds, sleep_pattern_seconds)
         self.config: Type[spc.WortenSpConfig] = config
@@ -40,6 +41,7 @@ class WortenScraper(Scraper):
         """
         self.assert_wd_active()
         logger.info("close cookie pop-up (if exists)")
+        time.sleep(5)
         # find button
         try:
             button = self.wd.find_element(By.XPATH, "//*[contains(text(), 'Aceitar Tudo')]")
@@ -112,7 +114,7 @@ class WortenScraper(Scraper):
                 )
             )
         except TimeoutException:
-            #self.wd.save_screenshot(constants.MAIN_DIR / "screenshots/worten_categories.png")
+            #self.wd.save_screenshot(config.MAIN_DIR / "screenshots/worten_categories.png")
             if "captcha" in self.wd.page_source.lower():
                 raise ScraperBlockedError('got Worten captcha')
             raise TimeoutException("Categories page not properly loaded")
@@ -177,14 +179,25 @@ class WortenScraper(Scraper):
             # if there is a next page click on it to move forward, if there isn't then
             # it must be the end of the section so exit
             try:
-                next_page_link = self.wd.find_element(By.XPATH, '//li[@class="pagination-next"]/a')
-            except NoSuchElementException:
+                next_page_link = (
+                    WebDriverWait(self.wd, self.load_wait_seconds)
+                    .until(
+                        EC.presence_of_element_located((By.XPATH, '//li[@class="pagination-next"]/a'))
+                    )
+                )
+            except (TimeoutException, NoSuchElementException): # test if only TimeoutException works
                 break
             else:
                 try:
                     next_page_link.click()
                 except ElementNotInteractableException:
-                    logger.warning('ElementNotInteractableException on next page click, stopping category scrape')
+                    logger.warning('ElementNotInteractableException on next page click, trying to accept cookies again')
+                    self.accept_cookies()
+                    try:
+                        next_page_link.click()
+                    except ElementNotInteractableException:
+                        logger.warning('ElementNotInteractableException on next page click, stopping category scrape')
+                        break
             if p == self.config.MAX_PAGES_PER_SECTION:
                 logger.info("the section has more pages then the search limit")
             p += 1

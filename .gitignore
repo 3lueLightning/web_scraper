@@ -9,3 +9,5 @@ chromedriver*
 *.pkl
 *.log
 *.csv
+build/*
+*__pycache__*

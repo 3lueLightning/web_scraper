@@ -11,9 +11,9 @@ from typing import Union, Type, Optional
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 
-import utils
-import scraper_constants as spc
-from utils import Numeric, NumericIter
+from web_scraper import utils
+import web_scraper.scraper_config as spc
+from web_scraper.utils import Numeric, NumericIter
 
 
 logger = utils.log_ws(__name__)
@@ -31,7 +31,7 @@ class Scraper:
             self,
             config: Type[spc.ScraperConfig],
             load_wait_seconds: Numeric = 30,
-            sleep_pattern_seconds: Union[Numeric, NumericIter] = (2, 15),
+            sleep_pattern_seconds: Union[Numeric, NumericIter] = (2, 4),
             ) -> None:
         self.config: Type[spc.ScraperConfig] = config
         self.load_wait_seconds: Numeric = load_wait_seconds

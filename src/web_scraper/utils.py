@@ -10,7 +10,7 @@ from datetime import datetime
 
 import boto3
 
-import constants
+from web_scraper import config
 
 
 # Data type definitions
@@ -64,9 +64,9 @@ class SetLogger:
 
 
 def log_ws(name: str) -> logging.Logger:
-    logger = SetLogger(name, constants.LOG_LVL)
-    logger.to_console(constants.LOG_LVL)
-    logger.to_file(constants.LOG_FN, constants.LOG_LVL)
+    logger = SetLogger(name, config.LOG_LVL)
+    logger.to_console(config.LOG_LVL)
+    logger.to_file(config.LOG_FN, config.LOG_LVL)
     return logger.logger
 
 
@@ -78,7 +78,7 @@ def get_aws_credentials(file_name: str) -> dict[str, str]:
 
 
 def write_to_s3(data: Any) -> tuple[str, dict[str, Any]]:
-    aws_credentials = get_aws_credentials(constants.MAIN_DIR / 'web_scraper_accessKeys.csv')
+    aws_credentials = get_aws_credentials(config.MAIN_DIR / 'web_scraper_accessKeys.csv')
 
     #Creating Session With Boto3.
     session = boto3.Session(
@@ -95,7 +95,7 @@ def write_to_s3(data: Any) -> tuple[str, dict[str, Any]]:
 
 
 def read_from_s3(obj_name: str) -> dict[str, Any]:
-    aws_credentials = get_aws_credentials(constants.MAIN_DIR / 'web_scraper_accessKeys.csv')
+    aws_credentials = get_aws_credentials(config.MAIN_DIR / 'web_scraper_accessKeys.csv')
 
     #Creating Session With Boto3.
     session = boto3.Session(
