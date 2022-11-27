@@ -2,6 +2,7 @@
 Defines the basic the specific scraper make to get the Worten products
 """
 import re
+import time
 import pickle
 from random import uniform
 from typing import Union, Type, Optional
@@ -18,9 +19,8 @@ from selenium.common.exceptions import (
 
 from web_scraper import utils
 import web_scraper.scraper_config as spc
-from web_scraper.types import Numeric, NumericIter, NestedStrKeyDict
-from web_scraper.scraper_base import Scraper
-from web_scraper.errors import ScraperBlockedError, NoPopUpError
+from web_scraper.types import Numeric, NumericIter
+from web_scraper.scraper_base import Scraper, ScraperBlockedError
 
 
 logger = utils.log_ws(__name__)
@@ -29,53 +29,64 @@ logger = utils.log_ws(__name__)
 class WortenScraper(Scraper):
     def __init__(self,
                  config: Type[spc.WortenSpConfig],
-                 load_wait_sec: Union[int, float] = 30,
-                 sleep_pattern_sec: Union[Numeric, NumericIter] = (2, 4),
+                 load_wait_seconds: Union[int, float] = 30,
+                 sleep_pattern_seconds: Union[Numeric, NumericIter] = (2, 4),
                  ) -> None:
-        super().__init__(config, load_wait_sec, sleep_pattern_sec)
+        super().__init__(config, load_wait_seconds, sleep_pattern_seconds)
         self.config: Type[spc.WortenSpConfig] = config
-        self.lvl3_categories: Union[NestedStrKeyDict, dict] = {}
+        self.lvl3_categories: dict[str, dict[str, Union[str, int]]] = {}
         self.site_html: dict[str, list[str]] = {}
+        self._pagination_xpath = '//ul[@aria-label="Pagination"]'
+
+    def rm_cookies_pop_up(self) -> None:
+        """
+        Accept cookies in pop up, if it appears
+        """
+        self.assert_wd_active()
+        logger.info("close cookie pop-up (if exists)")
+        time.sleep(5)
+        # find button
+        try:
+            button = self.wd.find_element(By.XPATH, "//*[contains(text(), 'Aceitar Tudo')]")
+        except NoSuchElementException:
+            pass
+        else:
+            # click to accept cookies
+            button.click()
 
     def get_home_page(self):
         return self.get(self.config.HOME_PAGE)
 
-    def rm_cookies_pop_up(self, method: str = 'raise') -> None:
-        """
-        Accept cookies in pop up, if it appears
-        method:
-            * 'ignore' then it will carry if it doesn't find a pop-up window to close
-            * 'raise' it will raise and error if no window showed up
-        """
-        button_xpath = "//*[contains(text(), 'Aceitar Tudo')]"
-        extra_load_wait_sec: Numeric = 20
-
-        self.assert_wd_active()
-        logger.info("close cookie pop-up (if exists)")
-
-        # wait for pop-up button
-        try:
-            button = (
-                WebDriverWait(self.wd, self.load_wait_sec + extra_load_wait_sec)
-                .until(
-                    EC.presence_of_element_located((By.XPATH, button_xpath))
-                )
-            )
-        except TimeoutException:
-            if method == 'raise':
-                raise NoPopUpError("Couldn't find pop-up window")
-        else:
-            button.click()
-
     def _create_lvl3_category_xpath(self) -> str:
         """
-        Creates a string indicating the xpath of all the products level 3 categories to extract:
+        Creates a string indicating the xpath of all the products level 3 categories to extract
+
+        All items in the products page are organised in a hierarchical category system
+        (in 3 levels going from more general to more specific)
+        This XPATH captures the most specific level 'third-level', except 'Ver Todos'.
+        'Ver Todos' was excluded because it encompasses all the product in a category level 2.
+        It would be a more convenient way of accessing all items if only it was present everywhere
+        however only some level 2 categories have it. So to avoid scraping all the items of a given
+        level 2 category twice, we exclude it.
+        ex class: 'header__submenu-third-level-sitemap qa-header__submenu-third-level--'
+        //a[contains(@class, 'submenu-third-level') and not(contains(text(), 'Ver Todos'))]
+
+        However, we don't want all the class level 2 items as we are only interested in electronic items
+        So we restrict to:
             * large home appliances: 'Grandes Eletrodomésticos'
             * small home appliances: 'Pequenos Eletrodomésticos'
             * TVs, video and sound: 'TV, Vídeo e Som'
             * IT and acessories: 'Informática e Acessórios'
-        (for more information read: worten_site_layout.md)
-        :return: the xpath for categories above (as single string)
+        //div[contains(@class, 'submenu-second-level') and contains(/div/span/text(), 'Eletrodomésticos')]
+        However, it was actually sufficient only to use:
+        //div[div/span[contains(text(), 'Eletrodomésticos') or contains(text(), 'TV, Vídeo e Som') or contains(text(), 'Informática e Acessórios')]]
+
+        Now, we want all the categories level 3 that are on the unordered list (ul) which is the
+        only sibling of the category selected above, which is indicated by `following-sibling::ul`
+        So the final XPATH becomes:
+        //div[div/span[contains(text(), 'Eletrodomésticos') or contains(text(), 'TV, Vídeo e Som') or contains(text(), 'Informática e Acessórios')]]//following-sibling::ul//a[contains(@class, 'submenu-third-level') and not(contains(text(), 'Ver Todos')) and not(contains(text(), 'Ajuda-me a escolher'))]
+
+        :return: the xpath of all the products level 3 categories to extract
         """
         # create parent component
         parent_xpath = [f"contains(text(), '{category}')" for category in self.config.LVL2_CATEGORIES]
@@ -92,29 +103,6 @@ class WortenScraper(Scraper):
 
         return parent_xpath + sibling_xpath
 
-    def _wait_lvl3_categories(self, lvl3_xpath: str) -> None:
-        try:
-            _ = (
-                WebDriverWait(self.wd, self.load_wait_sec)
-                .until(
-                    EC.presence_of_element_located((By.XPATH, lvl3_xpath))
-                )
-            )
-        except TimeoutException:
-            self.wd.save_screenshot(self.config.MAIN_DIR/"screenshots"/"worten_categories.png")
-            if "captcha" in self.wd.page_source.lower():
-                raise ScraperBlockedError('got Worten captcha')
-            raise TimeoutException("Categories page not properly loaded")
-
-    def _parse_lvl3_category_urls(self, lvl3_category_links: str) -> NestedStrKeyDict:
-        lvl3_categories = {
-            link.get_attribute('text'): {"url": link.get_attribute('href')}
-            for link in lvl3_category_links
-        }
-        urls = [val for info in self.lvl3_categories.values() for val in info.values()]
-        logger.info(f"got {len(set(urls))} distinct level 3 category URLs")
-        return lvl3_categories
-
     def find_lvl3_category_urls(self) -> None:
         """
         Goes to the product page and populates categories_to_scrape with the names and
@@ -122,13 +110,28 @@ class WortenScraper(Scraper):
         """
         self.assert_wd_active()
         logger.info("start searching section URLs")
-
         self.wd.get(self.config.PRODUCT_PAGE_URL)
         lvl3_xpath = self._create_lvl3_category_xpath()
-        self._wait_lvl3_categories(lvl3_xpath)
+        try:
+            _ = (
+                WebDriverWait(self.wd, self.load_wait_seconds)
+                .until(
+                    EC.presence_of_element_located((By.XPATH, lvl3_xpath))
+                )
+            )
+        except TimeoutException:
+            #self.wd.save_screenshot(config.MAIN_DIR / "screenshots/worten_categories.png")
+            if "captcha" in self.wd.page_source.lower():
+                raise ScraperBlockedError('got Worten captcha')
+            raise TimeoutException("Categories page not properly loaded")
 
         lvl3_category_links = self.wd.find_elements(By.XPATH, lvl3_xpath)
-        self.lvl3_categories = self._parse_lvl3_category_urls(lvl3_category_links)
+        self.lvl3_categories = {
+            link.get_attribute('text'): {"url": link.get_attribute('href')}
+            for link in lvl3_category_links
+        }
+        urls = [val for info in self.lvl3_categories.values() for val in info.values()]
+        logger.info(f"got {len(set(urls))} distinct level 3 category URLs")
 
     def get_lvl3_category(self, base_url: str) -> list:
         """
@@ -146,14 +149,14 @@ class WortenScraper(Scraper):
             # wait for load until the page number is displayed
             try:
                 _ = (
-                    WebDriverWait(self.wd, self.load_wait_sec)
+                    WebDriverWait(self.wd, self.load_wait_seconds)
                     .until(
                         EC.presence_of_element_located((By.CLASS_NAME, 'current'))
                     )
                 )
             except TimeoutException:
-                total_wait_sec: float = sleep_time + self.load_wait_sec
-                logger.info(f"page didn't load after, {total_wait_sec:.3}s")
+                total_wait_seconds: float = sleep_time + self.load_wait_seconds
+                logger.info(f"page didn't load after, {total_wait_seconds:.3}s")
                 break
             # extract page HTML code
             category_html.append(self.wd.page_source)
@@ -162,7 +165,7 @@ class WortenScraper(Scraper):
             # it must be the end of the section so exit
             try:
                 next_page_link = (
-                    WebDriverWait(self.wd, self.load_wait_sec)
+                    WebDriverWait(self.wd, self.load_wait_seconds)
                     .until(
                         EC.presence_of_element_located((By.XPATH, '//li[@class="pagination-next"]/a'))
                     )
@@ -186,12 +189,11 @@ class WortenScraper(Scraper):
         return category_html
 
     def _get_pagination_navigation(self) -> Optional[WebElement]:
-        pagination_xpath = '//ul[@aria-label="Pagination"]'
         try:
             pagination_elem = (
-                WebDriverWait(self.wd, self.load_wait_sec)
+                WebDriverWait(self.wd, self.load_wait_seconds)
                 .until(
-                    EC.presence_of_element_located((By.XPATH, pagination_xpath))
+                    EC.presence_of_element_located((By.XPATH, self._pagination_xpath))
                 )
             )
         except TimeoutException:

@@ -11,3 +11,4 @@ chromedriver*
 *.csv
 build/*
 *__pycache__*
+screenshots/*.png

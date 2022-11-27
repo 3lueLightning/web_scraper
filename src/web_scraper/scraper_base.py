@@ -13,15 +13,10 @@ from selenium.webdriver.common.by import By
 
 from web_scraper import utils
 import web_scraper.scraper_config as spc
-from web_scraper.utils import Numeric, NumericIter
+from web_scraper.types import Numeric, NumericIter
 
 
 logger = utils.log_ws(__name__)
-
-
-class ScraperBlockedError(Exception):
-    pass
-
 
 class Scraper:
     """
@@ -30,12 +25,12 @@ class Scraper:
     def __init__(
             self,
             config: Type[spc.ScraperConfig],
-            load_wait_seconds: Numeric = 30,
-            sleep_pattern_seconds: Union[Numeric, NumericIter] = (2, 4),
+            load_wait_sec: Numeric = 30,
+            sleep_pattern_sec: Union[Numeric, NumericIter] = (2, 4),
             ) -> None:
         self.config: Type[spc.ScraperConfig] = config
-        self.load_wait_seconds: Numeric = load_wait_seconds
-        self.sleep_pattern_seconds: Union[Numeric, NumericIter] = sleep_pattern_seconds
+        self.load_wait_sec: Numeric = load_wait_sec
+        self.sleep_pattern_sec: Union[Numeric, NumericIter] = sleep_pattern_sec
 
         self.chrome_options: webdriver.ChromeOptions = self.__set_chrome_options()
         self.wd: Optional[webdriver.Chrome] = None
@@ -101,11 +96,11 @@ class Scraper:
         """
         try:
             sleep_time: Numeric = uniform(
-                self.sleep_pattern_seconds[0],
-                self.sleep_pattern_seconds[1]
+                self.sleep_pattern_sec[0],
+                self.sleep_pattern_sec[1]
             )
         except (TypeError, IndexError):
-            sleep_time: Numeric = self.sleep_pattern_seconds
+            sleep_time: Numeric = self.sleep_pattern_sec
         time.sleep(sleep_time)
         return sleep_time
 

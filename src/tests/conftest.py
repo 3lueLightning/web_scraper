@@ -24,7 +24,7 @@ def base_scraper() -> scraper_worten.WortenScraper:
 def worten_scraper() -> scraper_worten.WortenScraper:
     WORTEN_SP_CONFIG: WortenSpConfig = WORTEN_SP_CONFIG_PER_SYSTEM[config.MODE]
     scraper = scraper_worten.WortenScraper(WORTEN_SP_CONFIG)
-    scraper.set_headless()
+    #scraper.set_headless()
     scraper.start_chrome()
     scraper.get_home_page()
     scraper.rm_cookies_pop_up()

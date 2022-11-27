@@ -13,12 +13,6 @@ import boto3
 from web_scraper import config
 
 
-# Data type definitions
-Numeric = Union[int, float]
-# Numeric iterable type
-NumericIter = Union[Numeric, list[Numeric], tuple[Numeric]]
-
-
 class SetLogger:
     """
     Creates logger attribute with 2 optional handlers:
