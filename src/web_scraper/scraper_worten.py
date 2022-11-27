@@ -1,6 +1,7 @@
 """
 Defines the basic the specific scraper make to get the Worten products
 """
+import re
 import time
 import pickle
 from random import uniform
@@ -8,6 +9,7 @@ from typing import Union, Type, Optional
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import (
     TimeoutException,
@@ -18,7 +20,7 @@ from selenium.common.exceptions import (
 from web_scraper import utils
 import web_scraper.scraper_config as spc
 from web_scraper.utils import Numeric, NumericIter
-from web_scraper.site_scraper import Scraper, ScraperBlockedError
+from web_scraper.scraper_base import Scraper, ScraperBlockedError
 
 
 logger = utils.log_ws(__name__)
@@ -34,8 +36,9 @@ class WortenScraper(Scraper):
         self.config: Type[spc.WortenSpConfig] = config
         self.lvl3_categories: dict[str, dict[str, Union[str, int]]] = {}
         self.site_html: dict[str, list[str]] = {}
+        self._pagination_xpath = '//ul[@aria-label="Pagination"]'
 
-    def accept_cookies(self) -> None:
+    def rm_cookies_pop_up(self) -> None:
         """
         Accept cookies in pop up, if it appears
         """
@@ -50,6 +53,9 @@ class WortenScraper(Scraper):
         else:
             # click to accept cookies
             button.click()
+
+    def get_home_page(self):
+        return self.get(self.config.HOME_PAGE)
 
     def _create_lvl3_category_xpath(self) -> str:
         """
@@ -127,27 +133,6 @@ class WortenScraper(Scraper):
         urls = [val for info in self.lvl3_categories.values() for val in info.values()]
         logger.info(f"got {len(set(urls))} distinct level 3 category URLs")
 
-    def get_category_page_count(self) -> int:
-        """
-        Find the last page in a given section
-        :return: the last page number
-        """
-        # TODO: consider handling a TimeoutException thrown if 'pagination-last'
-        #  can't be retrieved
-        self.assert_wd_active()
-        try:
-            pagination_last_elem = (
-                WebDriverWait(self.wd, self.load_wait_seconds)
-                .until(
-                    EC.presence_of_element_located((By.CLASS_NAME, 'pagination-last'))
-                )
-            )
-        except TimeoutException:
-            self.wd.find_elements(By.XPATH, "//ul[@aria-label='Pagination']/li/a")
-        else:
-            n_pages = int(pagination_last_elem.text)
-        return n_pages
-
     def get_lvl3_category(self, base_url: str) -> list:
         """
         :param base_url:
@@ -192,7 +177,7 @@ class WortenScraper(Scraper):
                     next_page_link.click()
                 except ElementNotInteractableException:
                     logger.warning('ElementNotInteractableException on next page click, trying to accept cookies again')
-                    self.accept_cookies()
+                    self.rm_cookies_pop_up()
                     try:
                         next_page_link.click()
                     except ElementNotInteractableException:
@@ -203,6 +188,41 @@ class WortenScraper(Scraper):
             p += 1
         return category_html
 
+    def _get_pagination_navigation(self) -> Optional[WebElement]:
+        try:
+            pagination_elem = (
+                WebDriverWait(self.wd, self.load_wait_seconds)
+                .until(
+                    EC.presence_of_element_located((By.XPATH, self._pagination_xpath))
+                )
+            )
+        except TimeoutException:
+            return None
+        else:
+            return pagination_elem
+
+    @staticmethod
+    def _get_last_page(pagination_elem: WebElement) -> Optional[int]:
+        try:
+            navigation_elems = pagination_elem.find_elements(By.TAG_NAME, "li")
+        except NoSuchElementException:
+            return None
+        else:
+            page_txt = [re.sub("[^0-9]", "", elem.text) for elem in navigation_elems]
+            page_number = [int(txt) for txt in page_txt if txt]
+            return page_number[-1]
+
+    def get_page_count(self) -> Optional[int]:
+        """
+        Find the last page in a given section
+        :return: the last page number
+        """
+        self.assert_wd_active()
+        pagination_elem = self._get_pagination_navigation()
+        if pagination_elem is None:
+            return None
+        return self._get_last_page(pagination_elem)
+
     def get_site(self, select_categories: Optional[list[str]] = None) -> None:
         """
         Scrapes entire Worten site. It first goes to the product home page which contains
@@ -212,8 +232,8 @@ class WortenScraper(Scraper):
         self.assert_wd_active()
         logger.info("starting Worten full site parsing")
         # got to main page and accept cookies (seems more human to start there)
-        self.get(self.config.HOME_PAGE)
-        self.accept_cookies()
+        self.get_home_page()
+        self.rm_cookies_pop_up()
 
         # get section URLs
         if not self.lvl3_categories:

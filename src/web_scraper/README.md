@@ -6,3 +6,21 @@ or
 docker run -d worten_scraper:0.1  
 
 docker run -it worten_scraper:0.1 /bin/bash  
+
+
+
+Improvements:
+use
+
+```python
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
+```
+
+instead of 
+```python
+self.wd = webdriver.Chrome(self.config.DRIVER_PATH, options=self.chrome_options)
+```
+
+but watch out, you have to make sure you set the user agent properly afterwards

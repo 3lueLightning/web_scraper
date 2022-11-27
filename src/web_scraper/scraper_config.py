@@ -34,7 +34,7 @@ class WortenSpConfig(WortenSearchConfig, ScraperConfig):
 
 
 class LocalhostWSpConfig(WortenSpConfig):
-    DRIVER_PATH: str = config.MAIN_DIR / 'data' / 'chromedriver_mac64_10605249' #_mod
+    DRIVER_PATH: str = config.MAIN_DIR / 'drivers' / 'chromedriver_mac64_10605249' #_mod
     USER_AGENT: str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36"
 
 
@@ -43,7 +43,7 @@ class DockerWSpConfig(WortenSpConfig):
     USER_AGENT: str = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.5304.68 Safari/537.36"
 
 
-WORTEN_SP_CONFIG_PER_SYSTEM = {
+WORTEN_SP_CONFIG_PER_SYSTEM: dict = {
     'localhost': LocalhostWSpConfig(),
     'docker': DockerWSpConfig()
 }

@@ -117,7 +117,7 @@ class Scraper:
         """
         self.sample_share = share
 
-    def sanity_testing(self) -> bool:
+    def sanity_test(self) -> bool:
         """
         Validate that the scraper is functioning by checking that it
         got the correct title from example.com
