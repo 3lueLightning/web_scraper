@@ -17,10 +17,10 @@ from selenium.common.exceptions import (
     ElementNotInteractableException
 )
 
-from web_scraper import utils
-import web_scraper.scraper_config as spc
-from web_scraper.types import Numeric, NumericIter
-from web_scraper.scraper_base import Scraper, ScraperBlockedError
+from web_scraper.support import utils
+import web_scraper.extract.scraper_config as spc
+from web_scraper.support.types import Numeric, NumericIter
+from web_scraper.extract.scraper_base import Scraper, ScraperBlockedError
 
 
 logger = utils.log_ws(__name__)

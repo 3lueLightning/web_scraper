@@ -1,11 +1,16 @@
+"""
+Pytest configuration file with mocks and fixtures
+"""
+# TODO: mock Worten config object
+
 import pytest
+
 
 from web_scraper import (
     config,
-    scraper_base,
-    scraper_worten,
 )
-from web_scraper.scraper_config import (
+from web_scraper.extract import scraper_base, scraper_worten
+from web_scraper.extract.scraper_config import (
     WORTEN_SP_CONFIG_PER_SYSTEM,
     WortenSpConfig
 )

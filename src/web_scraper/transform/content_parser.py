@@ -4,8 +4,7 @@ from datetime import datetime
 
 from bs4 import BeautifulSoup, element
 
-from web_scraper import utils
-
+from web_scraper.support import utils
 
 logger = utils.log_ws(__name__)
 

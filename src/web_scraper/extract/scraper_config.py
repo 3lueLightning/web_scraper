@@ -2,14 +2,13 @@ from abc import ABC
 from dataclasses import dataclass
 
 from web_scraper import config
-from web_scraper.utils import default_field
+from web_scraper.support.utils import default_field
 
 # your user agent should be the same as the real Chrome, can find your installation's Chrome with this command
 # echo navigator.userAgent | /opt/google/chrome/chrome --headless --repl
 # or if you install jq:
 # echo navigator.userAgent | /opt/google/chrome/chrome --headless --repl 2> /dev/null | sed 's/^>>> //' | jq -r .result.value
 # and replace it in USER_AGENT
-
 
 
 @dataclass(frozen=True)
@@ -20,7 +19,8 @@ class WortenSearchConfig:
     LVL2_CATEGORIES: list[str] = default_field(['Eletrodomésticos', 'TV, Vídeo e Som', 'Informática e Acessórios'])
     LVL3_REF: str = 'submenu-third-level'
     LVL3_EXCLUDED_CATEGORIES: list[str] = default_field(['Ver Todos', 'Ajuda-me a escolher'])
-    MAX_PAGES_PER_SECTION: int = 20  # 100
+    MAX_PAGES_PER_SECTION: int = 5
+    N_MAX_SECTION_FAIL = 100
 
 
 @dataclass(frozen=True)

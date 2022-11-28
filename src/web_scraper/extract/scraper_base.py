@@ -11,9 +11,9 @@ from typing import Union, Type, Optional
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 
-from web_scraper import utils
-import web_scraper.scraper_config as spc
-from web_scraper.types import Numeric, NumericIter
+from web_scraper.support import utils
+import web_scraper.extract.scraper_config as spc
+from web_scraper.support.types import Numeric, NumericIter
 
 
 logger = utils.log_ws(__name__)

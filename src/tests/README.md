@@ -1,0 +1,1 @@
+Test folder for the entire ETL, correctly only covering the extraction stage.
