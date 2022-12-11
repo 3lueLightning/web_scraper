@@ -19,7 +19,7 @@ class WortenSearchConfig:
     LVL2_CATEGORIES: list[str] = default_field(['Eletrodomésticos', 'TV, Vídeo e Som', 'Informática e Acessórios'])
     LVL3_REF: str = 'submenu-third-level'
     LVL3_EXCLUDED_CATEGORIES: list[str] = default_field(['Ver Todos', 'Ajuda-me a escolher'])
-    MAX_PAGES_PER_SECTION: int = 5
+    MAX_PAGES_PER_SECTION: int = 2#5
     N_MAX_SECTION_FAIL = 100
 
 

@@ -19,7 +19,12 @@ from selenium.common.exceptions import (
 
 from web_scraper.support import utils
 import web_scraper.extract.scraper_config as spc
-from web_scraper.support.types import Numeric, NumericIter, NestedStrKeyDict
+from web_scraper.support.types import (
+    Numeric,
+    NumericIter,
+    StrDict,
+    ListStrDict
+)
 from web_scraper.extract.scraper_base import Scraper
 from web_scraper.support.errors import ScraperBlockedError, NoPopUpError
 
@@ -35,7 +40,7 @@ class WortenScraper(Scraper):
                  ) -> None:
         super().__init__(config, load_wait_sec, sleep_pattern_sec)
         self.config: Type[spc.WortenSpConfig] = config
-        self.lvl3_categories: Union[NestedStrKeyDict, dict] = {}
+        self.lvl3_categories: Optional[ListStrDict] = None
         self.sections_failed = []
 
     def get_home_page(self):
@@ -146,13 +151,18 @@ class WortenScraper(Scraper):
 
     def _parse_lvl3_category_urls(
             self,
-            lvl3_category_links: list[WebElement]) -> NestedStrKeyDict:
-        lvl3_categories = {
-            link.get_attribute('text'): {"url": link.get_attribute('href')}
+            lvl3_category_links: list[WebElement]) -> ListStrDict:
+        lvl3_categories = [
+            {
+                "url": link.get_attribute('href'),
+                "category_lvl1": link.get_attribute('href').split("/")[-3],
+                "category_lvl2": link.get_attribute('href').split("/")[-2],
+                "category_lvl3": link.get_attribute('href').split("/")[-1],
+                "lvl3_display_name": link.get_attribute('text')
+            }
             for link in lvl3_category_links
-        }
-        urls = [val for info in lvl3_categories.values() for val in info.values()]
-        logger.info(f"got {len(set(urls))} distinct level 3 category URLs")
+        ]
+        logger.info(f"got {len(lvl3_categories)} distinct level 3 categories")
         return lvl3_categories
 
     def find_lvl3_category_urls(self) -> None:
@@ -168,7 +178,7 @@ class WortenScraper(Scraper):
         self._wait_lvl3_categories(lvl3_xpath)
 
         lvl3_category_links: list[WebElement] = self.wd.find_elements(By.XPATH, lvl3_xpath)
-        self.lvl3_categories = self._parse_lvl3_category_urls(lvl3_category_links)
+        self.lvl3_categories: ListStrDict = self._parse_lvl3_category_urls(lvl3_category_links)
 
     def _check_page_loaded(self) -> bool:
         current_page_class_name = 'current'
@@ -229,14 +239,18 @@ class WortenScraper(Scraper):
             return False
         return self._click_next_page_link(next_page_link)
 
-    def get_section(self, base_url: str, name: Optional[str] = None) -> dict[str, Any]:
+    def get_section(self, base_url: str, specs: Optional[dict] = None) -> dict[str, Any]:
         """
         Starts on the base_url page and then clicks on the next page button to iterate
         through all pages. It stops when the button disappears, meaning we reached the
         end of the section (can be a category or any group of pages).
         :param base_url: first page of a section
-        :param name: a name for the section to be scraped
-        :return:
+        :param specs: additional information about the section that will be added
+            to "section_specs"
+        :return: a dictionary of the with:
+            * html: a list where each element is the raw html from a page in the section
+            * section_specs: characteristics of the section being scraped
+            * metadata: info about the scrape itself
         """
         logger.info(f'start extraction {base_url}')
         self.assert_wd_active()
@@ -248,8 +262,12 @@ class WortenScraper(Scraper):
             "section_specs": {"base_url": base_url, "n_pages": n_pages},
             "metadata": {"datetime": datetime.now(), "n_pages_scraped": 0}
         }
-        if name:
-            section_scrape["section_specs"]["name"] = name
+        if specs:
+            section_specs_keys = list(section_scrape["section_specs"].keys())
+            keys_in_specs = [key in specs for key in section_specs_keys]
+            assert not any(keys_in_specs), \
+                f"specs cannot contain any of this keys: {section_specs_keys}"
+            section_scrape["section_specs"].update(specs)
         p = 0
         while p <= self.config.MAX_PAGES_PER_SECTION:
             if not self._check_page_loaded():
@@ -267,12 +285,19 @@ class WortenScraper(Scraper):
         logger.info(f"scraped {p}/{n_pages} pages")
         return section_scrape
 
-    def try_get_section(self, base_url: str, name: Optional[str] = None) -> Optional[dict[str, Any]]:
+    def try_get_section(
+            self,
+            base_url: str,
+            specs: Optional[StrDict] = None) -> Optional[dict[str, Any]]:
+        logger.info("start extraction")
         try:
-            return self.get_section(base_url, name)
+            return self.get_section(base_url, specs)
         except WebDriverException as e:
             logger.warning(f"{e} prevented section scrape")
-            self.sections_failed.append({"name": name, "base_url": base_url})
+            failed = {"base_url": base_url}
+            if specs:
+                failed.update(specs)
+            self.sections_failed.append(failed)
             if len(self.sections_failed) > self.config.N_MAX_SECTION_FAIL:
                 raise ValueError('exceeded maximum amount of section failures')
             return
@@ -289,10 +314,22 @@ class WortenScraper(Scraper):
         if self.sample_share < 1 and uniform(0, 1) > self.sample_share:
             logger.info("category sampled out, skipping")
             return True
-        logger.info("start extraction")
         return False
 
-    def get_site(self, select_categories: Optional[list[str]] = None) -> dict[str, Any]:
+    def _filter_url(
+            self,
+            url: str,
+            excluded_urls: Optional[list[str]]) -> bool:
+        if excluded_urls and url in excluded_urls:
+            logger.info("URL in exclusion list")
+            return True
+        else:
+            return False
+
+    def get_site(
+            self,
+            select_categories: Optional[list[str]] = None,
+            excluded_urls: Optional[list[str]] = None) -> dict[str, Any]:
         """
         Scrapes entire Worten site. It first goes to the product home page which contains
         all the categories of products organised in a hierarchical format.
@@ -305,15 +342,22 @@ class WortenScraper(Scraper):
         logger.info("starting Worten full site parsing")
         # got to main page and accept cookies (seems more human to start there)
         self.get_home_page()
-        self.rm_cookies_pop_up() # (method='raise')
+        self.rm_cookies_pop_up()
 
         # get section URLs
         if not self.lvl3_categories:
             self.find_lvl3_category_urls()
 
         # scrape each page of each section
-        for name, info in self.lvl3_categories.items():
+        for category in self.lvl3_categories:
+            name: str = category['lvl3_display_name']
             logger.info(f"category {name}")
             if self._filter_category(name, select_categories):
                 continue
-            yield self.try_get_section(info["url"], name)
+            if self._filter_url(category["url"], excluded_urls):
+                continue
+            category_specs: StrDict = {
+                key: val for key, val in category.items()
+                if key not in ["url", 'n_pages']
+            }
+            yield self.try_get_section(category["url"], category_specs)

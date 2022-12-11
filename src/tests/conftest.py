@@ -5,10 +5,10 @@ Pytest configuration file with mocks and fixtures
 
 import pytest
 
-
 from web_scraper import (
     config,
 )
+
 from web_scraper.extract import scraper_base, scraper_worten
 from web_scraper.extract.scraper_config import (
     WORTEN_SP_CONFIG_PER_SYSTEM,

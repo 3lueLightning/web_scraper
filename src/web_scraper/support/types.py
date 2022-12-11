@@ -11,3 +11,4 @@ NumericIter = Union[Numeric, list[Numeric], tuple[Numeric]]
 
 StrDict = dict[str, str]
 NestedStrKeyDict = dict[str, dict[str, Any]]
+ListStrDict = list[StrDict]
