@@ -13,7 +13,7 @@ authors = [
 dependencies = [
     "boto3==1.24",
     "selenium==4.5",
-    #"webdriver_manager>=3.8", #TODO: read the src/web_scraper/README.md
+    "webdriver_manager==3.8.*",
     "beautifulsoup4==4.11",
 ]
 

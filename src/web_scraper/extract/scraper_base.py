@@ -6,17 +6,28 @@ https://www.php8legs.com/en/php-web-scraper/51-how-to-avoid-selenium-webdriver-f
 """
 import time
 from random import uniform
-from typing import Union, Type, Optional
+from dataclasses import dataclass
+from typing import Union, Type, Optional, Any
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 
 from web_scraper.support import utils
-import web_scraper.extract.scraper_config as spc
+from web_scraper.extract import scraper_config as spc
 from web_scraper.support.types import Numeric, NumericIter
 
 
 logger = utils.log_ws(__name__)
+
+
+@dataclass
+class SectionScrape:
+    html: list[str]
+    section_specs: dict[str, Any]
+    metadata: dict[str, Any]
+
 
 class Scraper:
     """
@@ -78,7 +89,8 @@ class Scraper:
         """
         Launches Chrome with the specified configuration
         """
-        self.wd = webdriver.Chrome(self.config.DRIVER_PATH, options=self.chrome_options)
+        #self.wd = webdriver.Chrome(self.config.DRIVER_PATH, options=self.chrome_options)
+        self.wd = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
 
     def get(self, *args, **kwargs):
         self.assert_wd_active()

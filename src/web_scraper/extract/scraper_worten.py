@@ -2,9 +2,10 @@
 Defines the basic the specific scraper make to get the Worten products
 """
 import re
+
 from random import uniform
 from datetime import datetime
-from typing import Union, Type, Optional, Any
+from typing import Union, Type, Optional
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -17,15 +18,16 @@ from selenium.common.exceptions import (
     ElementNotInteractableException
 )
 
-from web_scraper.support import utils
 import web_scraper.extract.scraper_config as spc
+
+from web_scraper.support import utils
 from web_scraper.support.types import (
     Numeric,
     NumericIter,
     StrDict,
     ListStrDict
 )
-from web_scraper.extract.scraper_base import Scraper
+from web_scraper.extract.scraper_base import Scraper, SectionScrape
 from web_scraper.support.errors import ScraperBlockedError, NoPopUpError
 
 
@@ -39,8 +41,8 @@ class WortenScraper(Scraper):
                  sleep_pattern_sec: Union[Numeric, NumericIter] = (2, 4),
                  ) -> None:
         super().__init__(config, load_wait_sec, sleep_pattern_sec)
-        self.config: Type[spc.WortenSpConfig] = config
-        self.lvl3_categories: Optional[ListStrDict] = None
+        self.config = config
+        self.lvl3_categories = None
         self.sections_failed = []
 
     def get_home_page(self):
@@ -54,7 +56,7 @@ class WortenScraper(Scraper):
             * 'raise' it will raise and error if no window showed up
         """
         button_xpath = "//*[contains(text(), 'Aceitar Tudo')]"
-        extra_load_wait_sec: Numeric = 20
+        extra_load_wait_sec = 20
 
         self.assert_wd_active()
         assert method in ['ignore', 'raise']
@@ -149,8 +151,8 @@ class WortenScraper(Scraper):
                 raise ScraperBlockedError('got Worten captcha')
             raise TimeoutException("Categories page not properly loaded")
 
+    @staticmethod
     def _parse_lvl3_category_urls(
-            self,
             lvl3_category_links: list[WebElement]) -> ListStrDict:
         lvl3_categories = [
             {
@@ -177,8 +179,8 @@ class WortenScraper(Scraper):
         lvl3_xpath = self._create_lvl3_category_xpath()
         self._wait_lvl3_categories(lvl3_xpath)
 
-        lvl3_category_links: list[WebElement] = self.wd.find_elements(By.XPATH, lvl3_xpath)
-        self.lvl3_categories: ListStrDict = self._parse_lvl3_category_urls(lvl3_category_links)
+        lvl3_category_links = self.wd.find_elements(By.XPATH, lvl3_xpath)
+        self.lvl3_categories = self._parse_lvl3_category_urls(lvl3_category_links)
 
     def _check_page_loaded(self) -> bool:
         current_page_class_name = 'current'
@@ -194,7 +196,7 @@ class WortenScraper(Scraper):
                 )
             )
         except TimeoutException:
-            total_wait_sec: Numeric = sleep_time + self.load_wait_sec
+            total_wait_sec = sleep_time + self.load_wait_sec
             logger.info(f"page didn't load after, {total_wait_sec:.3}s")
             return False
         return True
@@ -239,7 +241,10 @@ class WortenScraper(Scraper):
             return False
         return self._click_next_page_link(next_page_link)
 
-    def get_section(self, base_url: str, specs: Optional[dict] = None) -> dict[str, Any]:
+    def get_section(
+            self,
+            base_url: str,
+            specs: Optional[dict] = None) -> SectionScrape:
         """
         Starts on the base_url page and then clicks on the next page button to iterate
         through all pages. It stops when the button disappears, meaning we reached the
@@ -247,48 +252,43 @@ class WortenScraper(Scraper):
         :param base_url: first page of a section
         :param specs: additional information about the section that will be added
             to "section_specs"
-        :return: a dictionary of the with:
-            * html: a list where each element is the raw html from a page in the section
-            * section_specs: characteristics of the section being scraped
-            * metadata: info about the scrape itself
+        :return: a SectionScrape object
         """
         logger.info(f'start extraction {base_url}')
         self.assert_wd_active()
         self.wd.get(base_url)
         n_pages = self.count_pages()
         logger.info(f"{n_pages=} to scrape")
-        section_scrape: dict[str, Any] = {
-            "html": [],
-            "section_specs": {"base_url": base_url, "n_pages": n_pages},
-            "metadata": {"datetime": datetime.now(), "n_pages_scraped": 0}
-        }
+        html = []
+        section_specs = {"base_url": base_url, "n_pages": n_pages}
+        metadata = {"datetime": datetime.now(), "n_pages_scraped": 0}
         if specs:
-            section_specs_keys = list(section_scrape["section_specs"].keys())
+            section_specs_keys = list(section_specs.keys())
             keys_in_specs = [key in specs for key in section_specs_keys]
             assert not any(keys_in_specs), \
                 f"specs cannot contain any of this keys: {section_specs_keys}"
-            section_scrape["section_specs"].update(specs)
+            section_specs.update(specs)
         p = 0
         while p <= self.config.MAX_PAGES_PER_SECTION:
             if not self._check_page_loaded():
                 break
             p += 1
             # extract page HTML code
-            section_scrape["html"].append(self.wd.page_source)
+            html.append(self.wd.page_source)
             # TODO: is the are way to separate the moving function from the validation
             #  that it indeed moved to the next page?
             if not self._move_next_page():
                 break
             if p == self.config.MAX_PAGES_PER_SECTION:
                 logger.info("the section has more pages then the search limit")
-        section_scrape["metadata"]["n_pages_scraped"] = p
+        metadata["n_pages_scraped"] = p
         logger.info(f"scraped {p}/{n_pages} pages")
-        return section_scrape
+        return SectionScrape(html, section_specs, metadata)
 
     def try_get_section(
             self,
             base_url: str,
-            specs: Optional[StrDict] = None) -> Optional[dict[str, Any]]:
+            specs: Optional[StrDict] = None) -> Optional[SectionScrape]:
         logger.info("start extraction")
         try:
             return self.get_section(base_url, specs)
@@ -329,7 +329,7 @@ class WortenScraper(Scraper):
     def get_site(
             self,
             select_categories: Optional[list[str]] = None,
-            excluded_urls: Optional[list[str]] = None) -> dict[str, Any]:
+            excluded_urls: Optional[list[str]] = None) -> Optional[SectionScrape]:
         """
         Scrapes entire Worten site. It first goes to the product home page which contains
         all the categories of products organised in a hierarchical format.

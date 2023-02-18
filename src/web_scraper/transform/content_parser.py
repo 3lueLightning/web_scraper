@@ -5,23 +5,24 @@ from datetime import datetime
 from bs4 import BeautifulSoup, element
 
 from web_scraper.support import utils
+from web_scraper.extract.scraper_base import SectionScrape
 
 logger = utils.log_ws(__name__)
 
 
 class WortenHtmlParser:
     def __init__(self, metadata: dict[str, Any]) -> None:
-        self.metadata = self.__set_metadata_defaults(metadata)
+        self.metadata = self._set_metadata_defaults(metadata)
 
     @staticmethod
-    def __set_metadata_defaults(metadata: dict[str, Any]):
+    def _set_metadata_defaults(metadata: dict[str, Any]):
         metadata_defaults = {}
         if 'date' not in metadata:
             metadata_defaults['date'] = datetime.now().strftime("%Y-%m-%d")
         return dict(metadata, **metadata_defaults)
 
     @staticmethod
-    def __price_decoding(price_main: str, price_dec: str) -> float:
+    def _price_decoding(price_main: str, price_dec: str) -> float:
         try:
             price: float = float(f'{price_main}.{price_dec}')
         except ValueError:
@@ -40,14 +41,14 @@ class WortenHtmlParser:
         details_html: element.Tag = container.findChild('span', {"class": "w-currentPrice iss-current-price"})
         price_main: str = details_html.findChild("span", {"class": "w-product-price__main"}).text
         price_dec: str = details_html.findChild("sup", {"class": "w-product-price__dec"}).text
-        return self.__price_decoding(price_main, price_dec)
+        return self._price_decoding(price_main, price_dec)
 
     def extract_previous_price(self, container: element.Tag) -> float:
         details_html: element.Tag = container.findChild('span', {"class": "w-oldPrice"})
         if details_html:
             price_main: str = details_html.findChild("span", {"class": "w-product-price__main"}).text
             price_dec: str = details_html.findChild("sup", {"class": "w-product-price__dec"}).text
-            return self.__price_decoding(price_main, price_dec)
+            return self._price_decoding(price_main, price_dec)
 
     @staticmethod
     def extract_image_url(container: element.Tag) -> str:
@@ -91,16 +92,18 @@ class WortenHtmlParser:
             ]
         return []
 
-    def parse_site(self, site_html: dict[str, list[str]]) -> list[dict[str, Any]]:
-        assert site_html, "no pages to parse"
-        site_info: list = []
-        for category, page_list in site_html.items():
-            logger.info(f"parsing category: {category}")
-            metadata: dict[str, Any] = dict(self.metadata, **{"lvl3_category": category})
-            parsed_category: list[dict[str, Any]] = [
-                dict(prod, **metadata) for page in page_list
-                for prod in self.parse_containers(page)
-            ]
-            site_info.extend(parsed_category)
+    def parse_category(self, category: SectionScrape) -> list[dict[str, Any]]:
+        assert category, "no pages to parse"
+        specs = category.section_specs
+        category_lvl3 = specs['category_lvl3']
+        logger.info(f"parsing category: {category_lvl3}")
+
+        parsed_category: list = []
+        category_lvls = {f"category_lvl{i}": specs[f"category_lvl{i}"] for i in range(1, 4)}
+        extra: dict[str, Any] = dict(self.metadata, **category_lvls)
+        for page_html in category.html:
+            parsed_page_html = self.parse_containers(page_html)
+            parsed_page = dict({'html': parsed_page_html}, **extra)
+            parsed_category.extend(parsed_page)
         logger.info('Finished parsing Worten')
-        return site_info
+        return parsed_category
